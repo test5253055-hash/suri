@@ -909,7 +909,7 @@ Be specific — reference actual element names, API names, and values from the X
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-5',
         max_tokens: 1000,
         system: systemPrompt,
         messages: [{ role: 'user', content: `Analyze this Salesforce Flow XML:\n\n${xml}` }]
@@ -991,7 +991,7 @@ async function sendChat() {
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-5',
         max_tokens: 1000,
         system: systemPrompt,
         messages: chatHistory
