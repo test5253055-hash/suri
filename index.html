@@ -832,7 +832,8 @@ function getApiKey() {
 }
 
 function getAzureEndpoint() {
-  return document.getElementById('endpointInput').value.trim().replace(/\/$/, '');
+  const input = document.getElementById('endpointInput').value.trim().replace(/\/$/, '');
+  return input || 'https://diagnosisengine.cognitiveservices.azure.com';
 }
 
 // ─── Analysis ─────────────────────────────────────────────────────────────────
@@ -904,7 +905,7 @@ Overall quality score (1-10) with brief justification.
 Be specific — reference actual element names, API names, and values from the XML. Use code formatting for API names.`;
 
   try {
-    const azureEndpoint = getAzureEndpoint();
+    const azureEndpoint = 'https://diagnosisengine.cognitiveservices.azure.com';
     const response = await fetch(`${azureEndpoint}/openai/deployments/Suriya/chat/completions?api-version=2025-01-01-preview`, {
       method: 'POST',
       mode: 'cors',
@@ -989,7 +990,7 @@ async function sendChat() {
   const systemPrompt = `You are a Salesforce Flow expert. You have already analyzed a Salesforce Flow XML and provided an analysis report. Now answer follow-up questions about the flow. Be specific, reference element names and line details from the XML when relevant. Format your answers with Markdown when helpful.`;
 
   try {
-    const azureEndpoint2 = getAzureEndpoint();
+    const azureEndpoint2 = 'https://diagnosisengine.cognitiveservices.azure.com';
     const response = await fetch(`${azureEndpoint2}/openai/deployments/Suriya/chat/completions?api-version=2025-01-01-preview`, {
       method: 'POST',
       mode: 'cors',
