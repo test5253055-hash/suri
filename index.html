@@ -905,7 +905,7 @@ Be specific — reference actual element names, API names, and values from the X
 
   try {
     const azureEndpoint = getAzureEndpoint();
-    const response = await fetch(`${azureEndpoint}/openai/deployments/Suriya/chat/completions?api-version=2024-02-01`, {
+    const response = await fetch(`${azureEndpoint}/openai/deployments/Suriya/chat/completions?api-version=2025-01-01-preview`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -987,7 +987,7 @@ async function sendChat() {
 
   try {
     const azureEndpoint2 = getAzureEndpoint();
-    const response = await fetch(`${azureEndpoint2}/openai/deployments/Suriya/chat/completions?api-version=2024-02-01`, {
+    const response = await fetch(`${azureEndpoint2}/openai/deployments/Suriya/chat/completions?api-version=2025-01-01-preview`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
