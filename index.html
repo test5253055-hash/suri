@@ -907,12 +907,13 @@ Be specific — reference actual element names, API names, and values from the X
     const azureEndpoint = getAzureEndpoint();
     const response = await fetch(`${azureEndpoint}/openai/deployments/Suriya/chat/completions?api-version=2025-01-01-preview`, {
       method: 'POST',
+      mode: 'cors',
       headers: {
         'Content-Type': 'application/json',
         'api-key': getApiKey()
       },
       body: JSON.stringify({
-        max_tokens: 1000,
+        max_tokens: 4000,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: `Analyze this Salesforce Flow XML:\n\n${xml}` }
@@ -920,7 +921,9 @@ Be specific — reference actual element names, API names, and values from the X
       })
     });
 
-    const data = await response.json();
+    const rawText = await response.text();
+    let data;
+    try { data = JSON.parse(rawText); } catch(e) { throw new Error('API response: ' + rawText.slice(0, 300)); }
     const text = data.choices?.[0]?.message?.content || data.error?.message || 'No analysis returned.';
     lastAnalysis = text;
     chatHistory = [];
@@ -989,17 +992,20 @@ async function sendChat() {
     const azureEndpoint2 = getAzureEndpoint();
     const response = await fetch(`${azureEndpoint2}/openai/deployments/Suriya/chat/completions?api-version=2025-01-01-preview`, {
       method: 'POST',
+      mode: 'cors',
       headers: {
         'Content-Type': 'application/json',
         'api-key': getApiKey()
       },
       body: JSON.stringify({
-        max_tokens: 1000,
+        max_tokens: 4000,
         messages: [{ role: 'system', content: systemPrompt }, ...chatHistory]
       })
     });
 
-    const data = await response.json();
+    const rawText2 = await response.text();
+    let data;
+    try { data = JSON.parse(rawText2); } catch(e) { throw new Error('API response: ' + rawText2.slice(0, 300)); }
     const answer = data.choices?.[0]?.message?.content || data.error?.message || 'No answer returned.';
     chatHistory.push({ role: 'assistant', content: answer });
 
