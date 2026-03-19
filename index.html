@@ -660,7 +660,7 @@
         <span class="logo-text">FlowAnalyzer</span>
         <span class="logo-sub">/ Salesforce Org Intelligence</span>
       </div>
-      <div class="header-badge">POWERED BY CLAUDE</div>
+      <div style="display:flex;align-items:center;gap:0.5rem;margin-left:auto"><input id="apiKeyInput" type="password" placeholder="Paste sk-ant-... API Key" style="background:#080d18;border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:0.7rem;padding:5px 10px;outline:none;width:240px" /><div class="header-badge">CLAUDE</div></div>
     </div>
   </header>
 
@@ -826,10 +826,16 @@ function switchTab(tab) {
   document.getElementById('tab-' + tab).classList.add('active');
 }
 
+// ─── API Key helper ──────────────────────────────────────────────────────────
+function getApiKey() {
+  return document.getElementById('apiKeyInput').value.trim();
+}
+
 // ─── Analysis ─────────────────────────────────────────────────────────────────
 async function runAnalysis() {
   const xml = document.getElementById('xmlInput').value.trim();
   if (!xml) { showToast('Please paste or upload a Flow XML first', false); return; }
+  if (!getApiKey()) { showToast('Enter your Anthropic API key in the top bar first', false); return; }
   if (isLoading) return;
 
   lastXML = xml;
@@ -896,7 +902,12 @@ Be specific — reference actual element names, API names, and values from the X
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': getApiKey(),
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1000,
@@ -973,7 +984,12 @@ async function sendChat() {
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': getApiKey(),
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1000,
