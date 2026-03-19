@@ -1177,13 +1177,7 @@ function autoResize(el) {
   el.style.height = Math.min(el.scrollHeight, 120) + 'px';
 }
 
-// Preload docx library in background on page load
-window.addEventListener('load', () => {
-  setTimeout(() => {
-    loadScript('https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.min.js')
-      .catch(() => {});
-  }, 2000);
-});
+// docx library no longer needed - using native Word HTML format
 
 // ─── Markdown renderer (lightweight) ─────────────────────────────────────────
 function renderMarkdown(md) {
@@ -1211,148 +1205,60 @@ function renderMarkdown(md) {
   return `<p>${html}</p>`.replace(/<p><\/p>/g, '').replace(/<p>(<h[123]>)/g, '$1').replace(/(<\/h[123]>)<\/p>/g, '$1');
 }
 
-// ─── Download DOCX (via docx library CDN) ────────────────────────────────────
-async function downloadDocx() {
+// ─── Download DOCX (instant - no CDN library needed) ─────────────────────────
+function downloadDocx() {
   if (!lastAnalysis) { showToast('Nothing to download yet', false); return; }
+  setStatus('Generating document…');
 
-  showToast('Generating .docx…', true);
-  setStatus('Building document…');
+  // Convert markdown to HTML for Word
+  const html = renderMarkdown(lastAnalysis);
+  const metaType = currentMetaType.charAt(0).toUpperCase() + currentMetaType.slice(1);
+  const date = new Date().toLocaleString();
 
-  // Load docx library dynamically
-  if (!window.docx) {
-    showToast('Loading document library…', true);
-    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.min.js');
-  }
+  const wordContent = `
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:w="urn:schemas-microsoft-com:office:word"
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="UTF-8">
+<meta name=ProgId content=Word.Document>
+<meta name=Generator content="Microsoft Word 15">
+<!--[if gte mso 9]>
+<xml><w:WordDocument><w:View>Print</w:View><w:Zoom>90</w:Zoom></w:WordDocument></xml>
+<![endif]-->
+<style>
+  body { font-family: Calibri, sans-serif; font-size: 11pt; color: #1a1a1a; margin: 2cm; }
+  h1 { font-size: 20pt; color: #1E40AF; border-bottom: 2px solid #1E40AF; padding-bottom: 6pt; margin-top: 18pt; }
+  h2 { font-size: 15pt; color: #1D4ED8; margin-top: 14pt; }
+  h3 { font-size: 12pt; color: #374151; margin-top: 10pt; }
+  p { line-height: 1.6; margin: 6pt 0; }
+  ul, ol { margin: 4pt 0 4pt 20pt; }
+  li { margin: 3pt 0; line-height: 1.5; }
+  strong { color: #B45309; }
+  code { font-family: Consolas, monospace; font-size: 9.5pt; background: #F3F4F6; padding: 1pt 3pt; }
+  hr { border: none; border-top: 1px solid #D1D5DB; margin: 12pt 0; }
+  .header-block { background: #EFF6FF; padding: 10pt; border-left: 4pt solid #1E40AF; margin-bottom: 16pt; }
+  .header-block p { margin: 2pt 0; color: #374151; font-size: 10pt; }
+</style>
+</head>
+<body>
+<div class="header-block">
+  <p><strong>Salesforce ${metaType} Analysis Report</strong></p>
+  <p>Generated: ${date}</p>
+</div>
+${html}
+</body>
+</html>`;
 
-  try {
-    const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle } = window.docx;
-
-    const lines = lastAnalysis.split('\n');
-    const children = [];
-
-    children.push(new Paragraph({
-      children: [new TextRun({ text: 'Salesforce Flow Analysis Report', bold: true, size: 40, color: '1E40AF' })],
-      alignment: AlignmentType.CENTER,
-      spacing: { after: 400 }
-    }));
-
-    children.push(new Paragraph({
-      children: [new TextRun({ text: `Generated: ${new Date().toLocaleString()}`, size: 18, color: '6B7280', italics: true })],
-      alignment: AlignmentType.CENTER,
-      spacing: { after: 600 }
-    }));
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed) {
-        children.push(new Paragraph({ spacing: { after: 120 } }));
-        continue;
-      }
-      if (trimmed.startsWith('# ')) {
-        children.push(new Paragraph({
-          text: trimmed.slice(2),
-          heading: HeadingLevel.HEADING_1,
-          spacing: { before: 360, after: 200 }
-        }));
-      } else if (trimmed.startsWith('## ')) {
-        children.push(new Paragraph({
-          text: trimmed.slice(3),
-          heading: HeadingLevel.HEADING_2,
-          spacing: { before: 280, after: 160 }
-        }));
-      } else if (trimmed.startsWith('### ')) {
-        children.push(new Paragraph({
-          text: trimmed.slice(4),
-          heading: HeadingLevel.HEADING_3,
-          spacing: { before: 200, after: 120 }
-        }));
-      } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-        children.push(new Paragraph({
-          children: [new TextRun({ text: trimmed.slice(2) })],
-          bullet: { level: 0 },
-          spacing: { after: 80 }
-        }));
-      } else if (/^\d+\. /.test(trimmed)) {
-        children.push(new Paragraph({
-          children: [new TextRun({ text: trimmed.replace(/^\d+\. /, '') })],
-          bullet: { level: 0 },
-          spacing: { after: 80 }
-        }));
-      } else if (trimmed === '---') {
-        children.push(new Paragraph({
-          border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: 'D1D5DB', space: 1 } },
-          spacing: { before: 200, after: 200 }
-        }));
-      } else {
-        // Parse inline bold
-        const runs = parseInline(trimmed, TextRun);
-        children.push(new Paragraph({ children: runs, spacing: { after: 120 } }));
-      }
-    }
-
-    const doc = new Document({
-      styles: {
-        default: { document: { run: { font: 'Calibri', size: 22 } } },
-        paragraphStyles: [
-          { id: 'Heading1', name: 'Heading 1', basedOn: 'Normal', next: 'Normal', quickFormat: true,
-            run: { size: 32, bold: true, color: '1E40AF', font: 'Calibri' },
-            paragraph: { spacing: { before: 320, after: 160 }, outlineLevel: 0 } },
-          { id: 'Heading2', name: 'Heading 2', basedOn: 'Normal', next: 'Normal', quickFormat: true,
-            run: { size: 26, bold: true, color: '1D4ED8', font: 'Calibri' },
-            paragraph: { spacing: { before: 240, after: 120 }, outlineLevel: 1 } },
-          { id: 'Heading3', name: 'Heading 3', basedOn: 'Normal', next: 'Normal', quickFormat: true,
-            run: { size: 22, bold: true, color: '374151', font: 'Calibri' },
-            paragraph: { spacing: { before: 200, after: 80 }, outlineLevel: 2 } },
-        ]
-      },
-      sections: [{
-        properties: {
-          page: {
-            size: { width: 12240, height: 15840 },
-            margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 }
-          }
-        },
-        children
-      }]
-    });
-
-    const buffer = await Packer.toBuffer(doc);
-    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'salesforce-flow-analysis.docx';
-    a.click();
-    URL.revokeObjectURL(url);
-    setStatus('Document downloaded');
-    showToast('Downloaded!', true);
-  } catch (err) {
-    showToast('Error generating doc: ' + err.message, false);
-    setStatus('Error generating document');
-  }
-}
-
-function parseInline(text, TextRun) {
-  const runs = [];
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
-  for (const part of parts) {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      runs.push(new TextRun({ text: part.slice(2, -2), bold: true }));
-    } else {
-      runs.push(new TextRun({ text: part }));
-    }
-  }
-  return runs;
-}
-
-function loadScript(src) {
-  return new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = src;
-    s.onload = resolve;
-    s.onerror = reject;
-    document.head.appendChild(s);
-  });
+  const blob = new Blob([wordContent], { type: 'application/msword' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `sf-${currentMetaType}-analysis.doc`;
+  a.click();
+  URL.revokeObjectURL(url);
+  setStatus('Document downloaded');
+  showToast('Downloaded!', true);
 }
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
