@@ -156,6 +156,22 @@
   /* Left panel */
   .left-panel { display: flex; flex-direction: column; gap: 1.5rem; }
 
+
+  /* Metadata type buttons */
+  .meta-btn {
+    padding: 0.5rem 0.4rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+  }
+  .meta-btn:hover { border-color: var(--accent); color: var(--text); }
+  .meta-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(0,212,255,0.08); }
   /* Upload zone */
   .upload-zone {
     border: 2px dashed var(--border);
@@ -700,13 +716,31 @@
         </div>
       </div>
 
+      <!-- Metadata type selector -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-dot" style="background:var(--accent3)"></div>
+          <span class="panel-title">Metadata Type</span>
+        </div>
+        <div class="panel-body" style="padding:0.75rem">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.4rem">
+            <div class="meta-btn active" onclick="selectMeta(this,'flow')" data-type="flow">⚡ Flow</div>
+            <div class="meta-btn" onclick="selectMeta(this,'apex')" data-type="apex">☕ Apex Class</div>
+            <div class="meta-btn" onclick="selectMeta(this,'validation')" data-type="validation">✅ Validation Rule</div>
+            <div class="meta-btn" onclick="selectMeta(this,'permission')" data-type="permission">🔐 Permission Set</div>
+            <div class="meta-btn" onclick="selectMeta(this,'object')" data-type="object">📦 Custom Object</div>
+            <div class="meta-btn" onclick="selectMeta(this,'workflow')" data-type="workflow">🔄 Workflow Rule</div>
+          </div>
+        </div>
+      </div>
+
       <!-- Info card -->
       <div class="panel">
         <div class="panel-header">
           <div class="panel-dot" style="background:var(--accent3)"></div>
           <span class="panel-title">Analysis Covers</span>
         </div>
-        <div class="panel-body" style="font-size:0.75rem; color:var(--text-dim); line-height:1.8; font-family:var(--mono)">
+        <div class="panel-body" id="analysisCoversList" style="font-size:0.75rem; color:var(--text-dim); line-height:1.8; font-family:var(--mono)">
           <div>→ Flow type &amp; metadata overview</div>
           <div>→ Node/element inventory</div>
           <div>→ Decision logic &amp; branching</div>
@@ -779,6 +813,7 @@ let lastXML = '';
 let lastAnalysis = '';
 let chatHistory = [];
 let isLoading = false;
+let currentMetaType = 'flow';
 
 // ─── File Handling ────────────────────────────────────────────────────────────
 function handleFile(e) {
@@ -836,6 +871,144 @@ function getAzureEndpoint() {
   return input || 'https://diagnosisengine.cognitiveservices.azure.com';
 }
 
+
+// ─── Metadata type configs ─────────────────────────────────────────────────────
+const META_CONFIGS = {
+  flow: {
+    label: 'Flow XML Input',
+    placeholder: '<Flow xmlns="http://soap.sforce.com/2006/04/metadata">\n  <!-- Paste your Salesforce Flow XML here -->\n</Flow>',
+    covers: ['→ Flow type & metadata overview','→ Node/element inventory','→ Decision logic & branching','→ DML operations & queries','→ Variable & resource usage','→ Error handling & fault paths','→ Performance recommendations','→ Best practice violations','→ Security & governor limits'],
+    btnLabel: '⚡ Analyze Flow',
+    system: `You are a Salesforce Flow expert. Analyze the given Flow XML and produce a comprehensive structured report using Markdown with these sections:
+# Flow Analysis Report
+## 1. Overview (name, label, type, API version, status, purpose)
+## 2. Flow Metadata (processType, startElement, runInMode)
+## 3. Element Inventory (counts by type)
+## 4. Flow Logic Walkthrough (step-by-step narrative)
+## 5. Decision Logic & Branching (each decision node)
+## 6. Data Operations (SOQL queries, DML operations)
+## 7. Variables & Resources (all variables, formulas, constants)
+## 8. Error Handling (fault connectors, missing fault paths)
+## 9. Performance Considerations (SOQL in loops, bulk safety)
+## 10. Best Practice Violations (specific element names)
+## 11. Security Review (FLS, sharing mode, data exposure)
+## 12. Recommendations (HIGH/MEDIUM/LOW priority)
+## 13. Summary Score (1-10 with justification)
+Be specific — reference actual element API names from the XML.`
+  },
+  apex: {
+    label: 'Apex Class Input',
+    placeholder: 'public class MyApexClass {\n  // Paste your Apex class here\n}',
+    covers: ['→ Class structure & design patterns','→ SOQL queries & DML operations','→ Bulkification & governor limits','→ Exception handling','→ Test coverage analysis','→ Security (CRUD/FLS checks)','→ Async patterns (Future, Batch, Queueable)','→ Sharing model compliance','→ Performance recommendations'],
+    btnLabel: '☕ Analyze Apex',
+    system: `You are a Salesforce Apex expert. Analyze the given Apex code and produce a comprehensive report using Markdown:
+# Apex Class Analysis Report
+## 1. Overview (class name, type, sharing model, purpose)
+## 2. Class Structure (methods, inner classes, interfaces)
+## 3. SOQL & DML Operations (all queries with fields/objects/filters)
+## 4. Bulkification Analysis (SOQL/DML in loops, collection usage)
+## 5. Governor Limits Risk (CPU time, heap, queries, DML rows)
+## 6. Exception Handling (try/catch blocks, missing error handling)
+## 7. Security Review (CRUD/FLS checks, with/without sharing, injection risks)
+## 8. Async Patterns (@future, Batch, Queueable, Schedulable usage)
+## 9. Test Coverage Estimate (testable methods, mock recommendations)
+## 10. Best Practice Violations (specific method/line references)
+## 11. Recommendations (HIGH/MEDIUM/LOW priority)
+## 12. Quality Score (1-10 with justification)`
+  },
+  validation: {
+    label: 'Validation Rule XML',
+    placeholder: '<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">\n  <!-- Paste your Validation Rule XML here -->\n</ValidationRule>',
+    covers: ['→ Rule name & description','→ Error condition formula','→ Error message & location','→ Field dependencies','→ Performance impact','→ Logic analysis','→ Edge cases & gaps','→ User experience review','→ Recommendations'],
+    btnLabel: '✅ Analyze Validation Rule',
+    system: `You are a Salesforce admin and developer expert. Analyze the given Validation Rule XML and produce a report using Markdown:
+# Validation Rule Analysis Report
+## 1. Overview (rule name, object, active status, description)
+## 2. Error Condition Formula (formula breakdown, logic explanation)
+## 3. Error Message & Location (message text, field placement)
+## 4. Field Dependencies (which fields are referenced)
+## 5. Logic Analysis (when rule fires, when it doesn't)
+## 6. Edge Cases & Gaps (scenarios not covered, potential issues)
+## 7. Performance Impact (formula complexity, indexed fields)
+## 8. User Experience Review (message clarity, field highlight)
+## 9. Recommendations (improvements, alternatives)
+## 10. Quality Score (1-10 with justification)`
+  },
+  permission: {
+    label: 'Permission Set XML',
+    placeholder: '<PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">\n  <!-- Paste your Permission Set XML here -->\n</PermissionSet>',
+    covers: ['→ Permission set overview','→ Object permissions','→ Field permissions','→ Apex class access','→ VF page access','→ System permissions','→ Tab visibility','→ Security risk assessment','→ Least privilege analysis'],
+    btnLabel: '🔐 Analyze Permission Set',
+    system: `You are a Salesforce security expert. Analyze the given Permission Set XML and produce a report using Markdown:
+# Permission Set Analysis Report
+## 1. Overview (name, label, license, description)
+## 2. Object Permissions (create/read/edit/delete/view all/modify all per object)
+## 3. Field Permissions (readable/editable fields per object)
+## 4. Apex Class Access (permitted Apex classes)
+## 5. Visualforce Page Access (permitted VF pages)
+## 6. System Permissions (sensitive system-level permissions granted)
+## 7. Tab Visibility (visible tabs)
+## 8. Security Risk Assessment (over-permissioned areas, risks)
+## 9. Least Privilege Analysis (permissions that may be excessive)
+## 10. Recommendations (HIGH/MEDIUM/LOW priority)
+## 11. Security Score (1-10 with justification)`
+  },
+  object: {
+    label: 'Custom Object XML',
+    placeholder: '<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">\n  <!-- Paste your Custom Object XML here -->\n</CustomObject>',
+    covers: ['→ Object overview & purpose','→ Fields inventory','→ Relationships & lookups','→ Validation rules','→ Record types','→ Page layouts','→ Sharing & security model','→ Data architecture review','→ Recommendations'],
+    btnLabel: '📦 Analyze Custom Object',
+    system: `You are a Salesforce data architect. Analyze the given Custom Object XML and produce a report using Markdown:
+# Custom Object Analysis Report
+## 1. Overview (object name, label, plural, sharing model, description)
+## 2. Fields Inventory (all fields with type, required, unique, indexed)
+## 3. Relationships (lookups, master-detail, junction objects)
+## 4. Validation Rules (list and brief description)
+## 5. Record Types (list and purpose)
+## 6. Sharing & Security Model (OWD, sharing rules implications)
+## 7. Data Architecture Review (naming conventions, field design, redundancies)
+## 8. Index & Performance (fields that should be indexed)
+## 9. Recommendations (HIGH/MEDIUM/LOW priority)
+## 10. Architecture Score (1-10 with justification)`
+  },
+  workflow: {
+    label: 'Workflow Rule XML',
+    placeholder: '<Workflow xmlns="http://soap.sforce.com/2006/04/metadata">\n  <!-- Paste your Workflow Rule XML here -->\n</Workflow>',
+    covers: ['→ Workflow overview','→ Trigger criteria','→ Immediate actions','→ Time-dependent actions','→ Field updates analysis','→ Email alerts review','→ Outbound messages','→ Migration to Flow recommendation','→ Best practices'],
+    btnLabel: '🔄 Analyze Workflow Rule',
+    system: `You are a Salesforce automation expert. Analyze the given Workflow Rule XML and produce a report using Markdown:
+# Workflow Rule Analysis Report
+## 1. Overview (rule name, object, active status, trigger type)
+## 2. Trigger Criteria (when rule fires, formula/conditions)
+## 3. Immediate Actions (field updates, email alerts, tasks, outbound messages)
+## 4. Time-Dependent Actions (time triggers, actions scheduled)
+## 5. Field Updates Analysis (fields updated, formulas used)
+## 6. Email Alerts Review (templates used, recipients)
+## 7. Outbound Messages (endpoint URLs, fields sent)
+## 8. Migration to Flow Recommendation (complexity, effort estimate)
+## 9. Best Practice Violations
+## 10. Recommendations (HIGH/MEDIUM/LOW priority)
+## 11. Quality Score (1-10)`
+  }
+};
+
+function selectMeta(el, type) {
+  document.querySelectorAll('.meta-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  currentMetaType = type;
+  const cfg = META_CONFIGS[type];
+  // Update placeholder
+  document.getElementById('xmlInput').placeholder = cfg.placeholder;
+  // Update analyze button label
+  document.getElementById('analyzeBtn').innerHTML = cfg.btnLabel;
+  // Update analysis covers list
+  const list = document.getElementById('analysisCoversList');
+  if (list) list.innerHTML = cfg.covers.map(c => `<div>${c}</div>`).join('');
+  // Update panel title
+  const uploadTitle = document.querySelector('.panel-title');
+  if (uploadTitle) uploadTitle.textContent = cfg.label;
+}
+
 // ─── Analysis ─────────────────────────────────────────────────────────────────
 async function runAnalysis() {
   const xml = document.getElementById('xmlInput').value.trim();
@@ -857,52 +1030,7 @@ async function runAnalysis() {
   contentEl.className = 'result-content cursor';
   contentEl.innerHTML = '';
 
-  const systemPrompt = `You are a Salesforce Flow expert and org analyzer. When given a Salesforce Flow XML, produce a comprehensive, structured analysis report using Markdown formatting.
-
-Structure your report with these sections:
-# Flow Analysis Report
-
-## 1. Overview
-- Flow name, label, type, API version, status
-- Brief purpose/description inferred from the flow logic
-
-## 2. Flow Metadata
-- Key metadata fields (processType, startElementReference, runInMode, etc.)
-
-## 3. Element Inventory
-Table or list of all elements by type with counts (screens, decisions, assignments, loops, record creates/updates/deletes/lookups, subflows, apex, etc.)
-
-## 4. Flow Logic Walkthrough
-Step-by-step narrative of what the flow does from start to end, covering all branches.
-
-## 5. Decision Logic & Branching
-Detail each decision node, its conditions, and outcomes.
-
-## 6. Data Operations
-All SOQL queries (fields, objects, filters, limits) and DML operations (create/update/delete/upsert).
-
-## 7. Variables & Resources
-List all variables, constants, formulas, text templates with their types and usage.
-
-## 8. Error Handling
-Fault connectors, fault paths, error message handling (or note if missing).
-
-## 9. Performance Considerations
-SOQL in loops, bulk-safe patterns, governor limit risks.
-
-## 10. Best Practice Violations
-Any patterns that violate Salesforce best practices with specific element names.
-
-## 11. Security Review
-FLS checks, sharing mode, data exposure risks.
-
-## 12. Recommendations
-Prioritized list of improvements (HIGH/MEDIUM/LOW priority).
-
-## 13. Summary Score
-Overall quality score (1-10) with brief justification.
-
-Be specific — reference actual element names, API names, and values from the XML. Use code formatting for API names.`;
+  const systemPrompt = META_CONFIGS[currentMetaType]?.system || META_CONFIGS.flow.system;
 
   try {
     const azureEndpoint = 'https://diagnosisengine.cognitiveservices.azure.com';
@@ -1049,6 +1177,14 @@ function autoResize(el) {
   el.style.height = Math.min(el.scrollHeight, 120) + 'px';
 }
 
+// Preload docx library in background on page load
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    loadScript('https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.min.js')
+      .catch(() => {});
+  }, 2000);
+});
+
 // ─── Markdown renderer (lightweight) ─────────────────────────────────────────
 function renderMarkdown(md) {
   if (!md) return '';
@@ -1084,6 +1220,7 @@ async function downloadDocx() {
 
   // Load docx library dynamically
   if (!window.docx) {
+    showToast('Loading document library…', true);
     await loadScript('https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.min.js');
   }
 
