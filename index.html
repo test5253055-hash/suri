@@ -652,6 +652,55 @@
   .toast.show { opacity: 1; transform: translateY(0); }
   .toast.success { border-color: var(--success); color: var(--success); }
 
+
+  /* Bulk upload */
+  .file-queue { display:flex; flex-direction:column; gap:0.35rem; max-height:180px; overflow-y:auto; margin-bottom:0.75rem; }
+  .file-item {
+    display:flex; align-items:center; gap:0.5rem;
+    background:var(--surface2); border:1px solid var(--border);
+    border-radius:6px; padding:5px 10px;
+    font-family:var(--mono); font-size:0.68rem;
+  }
+  .file-item-name { flex:1; color:var(--text-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .file-item-type { 
+    padding:2px 6px; border-radius:3px; font-size:0.6rem; font-weight:600;
+    background:rgba(0,212,255,0.1); color:var(--accent); border:1px solid rgba(0,212,255,0.2);
+  }
+  .file-item-status { font-size:0.65rem; min-width:60px; text-align:right; }
+  .file-item-status.pending { color:var(--text-muted); }
+  .file-item-status.analyzing { color:var(--warning); }
+  .file-item-status.done { color:var(--success); }
+  .file-item-status.error { color:var(--error); }
+  .file-item-remove { cursor:pointer; color:var(--text-muted); font-size:0.9rem; }
+  .file-item-remove:hover { color:var(--error); }
+  .bulk-progress { 
+    height:4px; background:var(--border); border-radius:2px; margin-bottom:0.75rem; overflow:hidden;
+    display:none;
+  }
+  .bulk-progress-bar { height:100%; background:var(--accent); border-radius:2px; transition:width 0.3s; width:0%; }
+  .btn-bulk-analyze {
+    width:100%; padding:0.85rem; background:linear-gradient(135deg,#7c3aed,#5b21b6);
+    color:#fff; font-family:var(--mono); font-size:0.8rem; font-weight:600;
+    letter-spacing:0.08em; border:none; border-radius:8px; cursor:pointer;
+    transition:all 0.2s; text-transform:uppercase;
+  }
+  .btn-bulk-analyze:hover { transform:translateY(-1px); box-shadow:0 4px 20px rgba(124,58,237,0.3); }
+  .btn-bulk-analyze:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
+  .bulk-results-list { display:flex; flex-direction:column; gap:0.5rem; flex:1; overflow-y:auto; }
+  .bulk-result-card {
+    background:var(--surface2); border:1px solid var(--border); border-radius:8px; overflow:hidden;
+  }
+  .bulk-result-header {
+    display:flex; align-items:center; gap:0.6rem; padding:0.6rem 0.85rem;
+    cursor:pointer; border-bottom:1px solid transparent; transition:background 0.15s;
+  }
+  .bulk-result-header:hover { background:rgba(255,255,255,0.03); }
+  .bulk-result-header.open { border-bottom-color:var(--border); }
+  .bulk-result-name { font-family:var(--mono); font-size:0.72rem; color:var(--text); flex:1; }
+  .bulk-result-badge { font-family:var(--mono); font-size:0.6rem; padding:2px 7px; border-radius:3px; }
+  .bulk-result-body { display:none; padding:0.85rem; font-size:0.8rem; line-height:1.7; }
+  .bulk-result-body.open { display:block; }
+  .bulk-result-actions { display:flex; gap:0.4rem; padding:0 0.85rem 0.85rem; }
   /* Scrollbar */
   ::-webkit-scrollbar { width: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -667,6 +716,7 @@
 </head>
 <body>
 
+<input type="hidden" id="currentAnalysisId" value="">
 <div class="app">
   <!-- Header -->
   <header>
@@ -676,7 +726,7 @@
         <span class="logo-text">FlowAnalyzer</span>
         <span class="logo-sub">/ Salesforce Org Intelligence</span>
       </div>
-      <div style="display:flex;align-items:center;gap:0.5rem;margin-left:auto"><input id="endpointInput" type="text" placeholder="https://diagnosisengine.cognitiveservices.azure.com" style="background:#080d18;border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:0.7rem;padding:5px 10px;outline:none;width:320px" /><input id="apiKeyInput" type="password" placeholder="Paste Azure OpenAI Key" style="background:#080d18;border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:0.7rem;padding:5px 10px;outline:none;width:240px" /><div class="header-badge">CLAUDE</div></div>
+      <div style="display:flex;align-items:center;gap:0.5rem;margin-left:auto"><input id="endpointInput" type="text" placeholder="https://diagnosisengine.cognitiveservices.azure.com" style="background:#080d18;border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:0.7rem;padding:5px 10px;outline:none;width:320px" /><input id="cosmosKeyInput" type="password" placeholder="Cosmos DB Key" onchange="localStorage.setItem('sf_cosmos_key', this.value)" style="background:#080d18;border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:0.7rem;padding:5px 10px;outline:none;width:200px" /><input id="apiKeyInput" type="password" placeholder="Paste Azure OpenAI Key" style="background:#080d18;border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:0.7rem;padding:5px 10px;outline:none;width:240px" onchange="localStorage.setItem('sf_api_key', this.value)" /><div class="header-badge">CLAUDE</div></div>
     </div>
   </header>
 
@@ -759,6 +809,8 @@
       <div class="tabs">
         <div class="tab active" onclick="switchTab('analysis')">Analysis Report</div>
         <div class="tab" onclick="switchTab('chat')">Q&amp;A Chat</div>
+        <div class="tab" onclick="switchTab('bulk')">⚡ Bulk Analysis</div>
+        <div class="tab" onclick="switchTab('history'); loadHistory()">🕐 History</div>
       </div>
 
       <div class="tab-content">
@@ -871,6 +923,175 @@ function getAzureEndpoint() {
   return input || 'https://diagnosisengine.cognitiveservices.azure.com';
 }
 
+
+
+// ─── Cosmos DB Direct REST API ───────────────────────────────────────────────
+const COSMOS_ENDPOINT = 'https://sf-analyzer-cosmos.documents.azure.com:443'; // endpoint is safe to hardcode
+const COSMOS_KEY = localStorage.getItem('sf_cosmos_key') || '';
+const COSMOS_DB = 'SFAnalyzer';
+const COSMOS_CONTAINER = 'analyses';
+const COSMOS_CHAT_CONTAINER = 'chats';
+
+// Generate HMAC-SHA256 auth token for Cosmos DB REST API
+async function getCosmosAuthHeader(verb, resourceType, resourceLink, date) {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    Uint8Array.from(atob(COSMOS_KEY), c => c.charCodeAt(0)),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const text = `${verb.toLowerCase()}\n${resourceType.toLowerCase()}\n${resourceLink}\n${date.toLowerCase()}\n\n`;
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(text));
+  const sigBase64 = btoa(String.fromCharCode(...new Uint8Array(sig)));
+  return encodeURIComponent(`type=master&ver=1.0&sig=${sigBase64}`);
+}
+
+async function cosmosRequest(method, path, body = null) {
+  const resourceType = path.split('/').length % 2 === 0 ? path.split('/').slice(-2)[0] : path.split('/').slice(-1)[0];
+  const resourceLink = path.startsWith('/') ? path.slice(1) : path;
+  const date = new Date().toUTCString();
+  const auth = await getCosmosAuthHeader(method, resourceType, resourceLink, date);
+
+  const headers = {
+    'Authorization': auth,
+    'x-ms-date': date,
+    'x-ms-version': '2018-12-31',
+    'Content-Type': 'application/json',
+    'x-ms-documentdb-partitionkey': '["flow"]'
+  };
+
+  const res = await fetch(`${COSMOS_ENDPOINT}/${resourceLink}`, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined
+  });
+  return res;
+}
+
+async function saveAnalysisToCosmos(metaType, fileName, fileContent, analysisResult) {
+  try {
+    const doc = {
+      id: `analysis-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+      metaType,
+      fileName,
+      fileContent: fileContent.slice(0, 10000),
+      analysisResult,
+      createdAt: new Date().toISOString(),
+      sessionId: getSessionId()
+    };
+    const path = `dbs/${COSMOS_DB}/colls/${COSMOS_CONTAINER}/docs`;
+    const headers = await buildCosmosHeaders('POST', 'docs', `dbs/${COSMOS_DB}/colls/${COSMOS_CONTAINER}`, metaType);
+    const res = await fetch(`${COSMOS_ENDPOINT}/${path}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(doc)
+    });
+    if (res.ok) {
+      console.log('Saved to Cosmos DB:', doc.id);
+      return doc.id;
+    } else {
+      const err = await res.text();
+      console.warn('Cosmos save failed:', err);
+      return null;
+    }
+  } catch(e) {
+    console.warn('Cosmos save error:', e);
+    return null;
+  }
+}
+
+async function buildCosmosHeaders(method, resourceType, resourceLink, partitionKey) {
+  const date = new Date().toUTCString();
+  const auth = await getCosmosAuthHeader(method, resourceType, resourceLink, date);
+  return {
+    'Authorization': auth,
+    'x-ms-date': date,
+    'x-ms-version': '2018-12-31',
+    'Content-Type': 'application/json',
+    'x-ms-documentdb-partitionkey': JSON.stringify([partitionKey || 'flow']),
+    'x-ms-documentdb-isquery': method === 'POST' && resourceType === 'docs' ? undefined : undefined
+  };
+}
+
+async function loadHistoryFromCosmos() {
+  try {
+    const resourceLink = `dbs/${COSMOS_DB}/colls/${COSMOS_CONTAINER}`;
+    const date = new Date().toUTCString();
+    const auth = await getCosmosAuthHeader('POST', 'docs', resourceLink, date);
+    const res = await fetch(`${COSMOS_ENDPOINT}/${resourceLink}/docs`, {
+      method: 'POST',
+      headers: {
+        'Authorization': auth,
+        'x-ms-date': date,
+        'x-ms-version': '2018-12-31',
+        'Content-Type': 'application/query+json',
+        'x-ms-documentdb-isquery': 'true',
+        'x-ms-documentdb-query-enablecrosspartition': 'true'
+      },
+      body: JSON.stringify({
+        query: 'SELECT c.id, c.metaType, c.fileName, c.createdAt, LEFT(c.analysisResult, 200) as preview FROM c ORDER BY c.createdAt DESC OFFSET 0 LIMIT 50'
+      })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data.Documents || [];
+    }
+    return [];
+  } catch(e) {
+    console.warn('Cosmos load error:', e);
+    return [];
+  }
+}
+
+async function loadAnalysisFromCosmos(id, metaType) {
+  try {
+    const resourceLink = `dbs/${COSMOS_DB}/colls/${COSMOS_CONTAINER}/docs/${id}`;
+    const date = new Date().toUTCString();
+    const auth = await getCosmosAuthHeader('GET', 'docs', resourceLink, date);
+    const res = await fetch(`${COSMOS_ENDPOINT}/${resourceLink}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': auth,
+        'x-ms-date': date,
+        'x-ms-version': '2018-12-31',
+        'x-ms-documentdb-partitionkey': JSON.stringify([metaType || 'flow'])
+      }
+    });
+    if (res.ok) return await res.json();
+    return null;
+  } catch(e) {
+    console.warn('Cosmos fetch error:', e);
+    return null;
+  }
+}
+
+async function deleteAnalysisFromCosmos(id, metaType) {
+  try {
+    const resourceLink = `dbs/${COSMOS_DB}/colls/${COSMOS_CONTAINER}/docs/${id}`;
+    const date = new Date().toUTCString();
+    const auth = await getCosmosAuthHeader('DELETE', 'docs', resourceLink, date);
+    const res = await fetch(`${COSMOS_ENDPOINT}/${resourceLink}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': auth,
+        'x-ms-date': date,
+        'x-ms-version': '2018-12-31',
+        'x-ms-documentdb-partitionkey': JSON.stringify([metaType || 'flow'])
+      }
+    });
+    return res.ok;
+  } catch(e) {
+    console.warn('Cosmos delete error:', e);
+    return false;
+  }
+}
+
+function getSessionId() {
+  let sid = sessionStorage.getItem('sf_session');
+  if (!sid) { sid = 'sess-' + Date.now() + '-' + Math.random().toString(36).slice(2,8); sessionStorage.setItem('sf_session', sid); }
+  return sid;
+}
 
 // ─── Metadata type configs ─────────────────────────────────────────────────────
 const META_CONFIGS = {
@@ -1057,6 +1278,14 @@ async function runAnalysis() {
     lastAnalysis = text;
     chatHistory = [];
 
+    // Save to Cosmos DB in background
+    saveAnalysisToCosmos(currentMetaType, 'manual-input', lastXML, text).then(id => {
+      if (id) {
+        setStatus('Analysis complete · Saved to Cosmos DB · Switch to Q&A Chat or History');
+        document.getElementById('currentAnalysisId').value = id;
+      }
+    });
+
     contentEl.className = 'result-content';
     contentEl.innerHTML = renderMarkdown(text);
 
@@ -1175,6 +1404,86 @@ function chatKey(e) {
 function autoResize(el) {
   el.style.height = 'auto';
   el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+
+// ─── History ──────────────────────────────────────────────────────────────────
+async function loadHistory() {
+  const list = document.getElementById('historyList');
+  list.innerHTML = '<div style="font-family:var(--mono);font-size:0.72rem;color:var(--text-muted);padding:1rem;text-align:center">Loading from Cosmos DB…</div>';
+
+  const docs = await loadHistoryFromCosmos();
+
+  if (docs.length === 0) {
+    list.innerHTML = '<div class="result-empty"><div class="result-empty-icon" style="font-size:2rem">📭</div><div class="result-empty-text">No analyses saved yet. Analyze a file to get started.</div></div>';
+    return;
+  }
+
+  list.innerHTML = docs.map(doc => `
+    <div class="bulk-result-card" id="hcard-${doc.id}">
+      <div class="bulk-result-header" onclick="loadHistoryItem('${doc.id}','${doc.metaType}')">
+        <span class="file-item-type">${(doc.metaType||'flow').toUpperCase()}</span>
+        <span class="bulk-result-name">${doc.fileName || 'Untitled'}</span>
+        <span style="font-family:var(--mono);font-size:0.62rem;color:var(--text-muted);margin-left:auto">${new Date(doc.createdAt).toLocaleString()}</span>
+        <span style="color:var(--text-muted);font-size:0.75rem;margin-left:0.5rem">▾</span>
+      </div>
+      <div class="bulk-result-body" id="hbody-${doc.id}">
+        <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:0.5rem">${doc.preview || ''}…</div>
+        <div style="display:flex;gap:0.4rem">
+          <button class="btn-small btn-download" onclick="loadAndViewHistoryItem('${doc.id}','${doc.metaType}')">📋 View Full Report</button>
+          <button class="btn-small btn-copy" onclick="deleteHistoryItem('${doc.id}','${doc.metaType}')">🗑 Delete</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function loadHistoryItem(id, metaType) {
+  const body = document.getElementById('hbody-' + id);
+  const header = document.querySelector(`#hcard-${id} .bulk-result-header`);
+  if (body) { body.classList.toggle('open'); header.classList.toggle('open'); }
+}
+
+async function loadAndViewHistoryItem(id, metaType) {
+  setStatus('Loading analysis from Cosmos DB…');
+  const doc = await loadAnalysisFromCosmos(id, metaType);
+  if (!doc) { showToast('Failed to load analysis', false); return; }
+
+  lastAnalysis = doc.analysisResult;
+  lastXML = doc.fileContent || '';
+  chatHistory = [];
+
+  // Switch to analysis tab and show result
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelector('.tab').classList.add('active');
+  document.getElementById('tab-analysis').classList.add('active');
+
+  document.getElementById('resultEmpty').style.display = 'none';
+  document.getElementById('resultArea').style.display = 'flex';
+  const contentEl = document.getElementById('resultContent');
+  contentEl.className = 'result-content';
+  contentEl.innerHTML = renderMarkdown(doc.analysisResult);
+  document.getElementById('resultMeta').textContent = `${doc.analysisResult.length} chars · Loaded from history`;
+
+  // Seed chat
+  chatHistory.push({ role: 'user', content: `Here is the Salesforce ${metaType} I want to discuss:\n\n${doc.fileContent || ''}` });
+  chatHistory.push({ role: 'assistant', content: doc.analysisResult });
+  document.getElementById('chatEmpty').style.display = 'none';
+
+  setStatus('Analysis loaded from Cosmos DB · Ready');
+  showToast('Loaded from history!', true);
+}
+
+async function deleteHistoryItem(id, metaType) {
+  if (!confirm('Delete this analysis from Cosmos DB?')) return;
+  const ok = await deleteAnalysisFromCosmos(id, metaType);
+  if (ok) {
+    document.getElementById('hcard-' + id)?.remove();
+    showToast('Deleted!', true);
+  } else {
+    showToast('Delete failed', false);
+  }
 }
 
 // docx library no longer needed - using native Word HTML format
