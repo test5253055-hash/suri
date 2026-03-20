@@ -846,6 +846,49 @@
             <button class="btn-send" id="sendBtn" onclick="sendChat()" title="Send">➤</button>
           </div>
         </div>
+
+        <!-- History Tab -->
+        <div class="tab-pane" id="tab-history" style="gap:0.75rem">
+          <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;flex-shrink:0">
+            <span style="font-family:var(--mono);font-size:0.75rem;color:var(--text-dim);flex:1">Past analyses saved in Cosmos DB</span>
+            <button class="btn-small btn-copy" onclick="loadHistory()" style="padding:4px 10px">↻ Refresh</button>
+          </div>
+          <div id="historyList" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:0.5rem">
+            <div class="result-empty">
+              <div class="result-empty-icon" style="font-size:2rem">🕐</div>
+              <div class="result-empty-text">Click Refresh to load history from Cosmos DB</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bulk Tab -->
+        <div class="tab-pane" id="tab-bulk" style="gap:0.75rem">
+          <div class="panel" style="flex-shrink:0">
+            <div class="panel-header">
+              <div class="panel-dot" style="background:var(--accent3)"></div>
+              <span class="panel-title">Bulk File Upload</span>
+              <span style="margin-left:auto;font-family:var(--mono);font-size:0.65rem;color:var(--text-muted)" id="bulkCount">0 files</span>
+            </div>
+            <div class="panel-body">
+              <div class="upload-zone" id="bulkDropZone" style="padding:1.25rem">
+                <input type="file" id="bulkFileInput" multiple accept=".xml,.flow,.flow-meta.xml,.cls,.trigger,.apex" onchange="handleBulkFiles(event)" />
+                <div class="upload-icon" style="font-size:1.5rem">📁</div>
+                <div class="upload-label">Drop multiple files here</div>
+                <div class="upload-hint">.xml · .flow · .cls · .apex — up to 20 files</div>
+              </div>
+              <div class="file-queue" id="fileQueue"></div>
+              <div class="bulk-progress" id="bulkProgress"><div class="bulk-progress-bar" id="bulkProgressBar"></div></div>
+              <button class="btn-bulk-analyze" id="bulkAnalyzeBtn" onclick="runBulkAnalysis()" disabled>⚡ Analyze All Files</button>
+            </div>
+          </div>
+          <div class="bulk-results-list" id="bulkResultsList">
+            <div class="result-empty">
+              <div class="result-empty-icon" style="font-size:2rem">📂</div>
+              <div class="result-empty-text">Upload multiple files and click Analyze All</div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
