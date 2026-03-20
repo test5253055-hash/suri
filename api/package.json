@@ -1,0 +1,14 @@
+{
+  "name": "sf-analyzer-api",
+  "version": "1.0.0",
+  "description": "SF Analyzer API - Azure Static Web Apps built-in Functions",
+  "main": "src/functions/*.js",
+  "scripts": {
+    "start": "func start",
+    "build": "echo No build needed"
+  },
+  "dependencies": {
+    "@azure/cosmos": "^4.0.0",
+    "@azure/functions": "^4.0.0"
+  }
+}
