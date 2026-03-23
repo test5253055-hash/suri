@@ -870,8 +870,8 @@
               <span style="margin-left:auto;font-family:var(--mono);font-size:0.65rem;color:var(--text-muted)" id="bulkCount">0 files</span>
             </div>
             <div class="panel-body">
-              <div class="upload-zone" id="bulkDropZone" style="padding:1.25rem">
-                <input type="file" id="bulkFileInput" multiple accept=".xml,.flow,.flow-meta.xml,.cls,.trigger,.apex" onchange="handleBulkFiles(event)" />
+              <div class="upload-zone" id="bulkDropZone" style="padding:1.25rem" onclick="document.getElementById('bulkFileInput').click()">
+                <input type="file" id="bulkFileInput" multiple accept=".xml,.flow,.flow-meta.xml,.cls,.trigger,.apex" onchange="handleBulkFiles(event)" style="display:none" />
                 <div class="upload-icon" style="font-size:1.5rem">📁</div>
                 <div class="upload-label">Drop multiple files here</div>
                 <div class="upload-hint">.xml · .flow · .cls · .apex — up to 20 files</div>
